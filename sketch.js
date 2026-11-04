@@ -12,6 +12,8 @@ const PATCH_COLORS = [
   "#9FDCD3", // teal
   "#F4BEE0", // pink
   "#D9D9AE", // sand
+  "#CDD3DB", // cool gray
+  "#E8D9C4", // linen
 ];
 const INK = "#1f2a2e";
 const MUTED_INK = "#3e4c51";

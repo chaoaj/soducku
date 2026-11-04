@@ -7,13 +7,15 @@ Optional "draft": true marks a level the game should skip.
 Every generated level is checked to have exactly one solution and to be
 solvable by the same step-by-step logic the in-game hint button uses.
 
+Levels 151-300 (harder 8x8, then 9x9) use the same repair method.
+
 Levels 1-50 (4x4 to 6x6) grow random patches and keep the boards that happen
 to have one solution. Levels 51-150 (harder 6x6, then 7x7 and 8x8) use
 "repair": when a board has a second solution, a square of that solution is
 moved into a neighboring patch until only the intended solution is left.
 
 Usage:
-    python3 tools/generate_levels.py            # writes levels.json (150 levels)
+    python3 tools/generate_levels.py            # writes levels.json (300 levels, a few minutes)
     python3 tools/generate_levels.py --seed 7   # different puzzles
 """
 
@@ -51,6 +53,14 @@ _WATER = ["Cove", "Creek", "Inlet", "Brook", "Slough", "Shallows", "Rapids",
           "Reeds", "Spring", "Bay"]
 EXTRA_NAMES = [f"{a} {w}" for a in _ADJ for w in _WATER]
 FINAL_NAME = "Great Lake"
+
+# Names for levels 151-300.
+_ADJ3 = ["Windy", "Stormy", "Shady", "Crystal", "Rushing", "Lazy", "Hazy",
+         "Starlit", "Twilight", "Dewy"]
+_WATER3 = ["Pond", "Lake", "Harbor", "Wetland", "Bog", "Mere", "Tarn", "Loch",
+           "Basin", "River", "Falls", "Channel", "Pool", "Moor", "Sound"]
+EXTRA_NAMES3 = [f"{a} {w}" for a in _ADJ3 for w in _WATER3]
+FINAL_NAME3 = "Open Ocean"
 
 
 def neighbors8(r, c, n):
@@ -326,7 +336,7 @@ def repaired_regions(n, rng, max_repairs=300):
     return rows
 
 
-def generate_repaired(n, how_many, rng, seen, min_hard=0, pool_factor=3):
+def generate_repaired(n, how_many, rng, seen, min_hard=0, pool_factor=3, show=False):
     """Make a pool of repaired boards and keep an even spread, easier first."""
     pool = []
     while len(pool) < how_many * pool_factor:
@@ -340,6 +350,8 @@ def generate_repaired(n, how_many, rng, seen, min_hard=0, pool_factor=3):
             continue
         seen.add("".join(grid))
         pool.append((hard, steps, grid))
+        if show and len(pool) % 20 == 0:
+            print(f"  {n}x{n}: {len(pool)}/{how_many * pool_factor}", flush=True)
     pool.sort(key=lambda t: (t[0], t[1]))
     # Take evenly spaced picks so difficulty climbs steadily.
     picks = [pool[round(i * (len(pool) - 1) / (how_many - 1))] for i in range(how_many)]
@@ -381,6 +393,16 @@ def main():
     plan2 = [(6, 15, 16), (7, 40, 6), (8, 45, 12)]   # size, count, min hard steps
     for n, k, min_hard in plan2:
         for hard, steps, grid in generate_repaired(n, k, rng2, seen, min_hard):
+            levels.append({"name": next(extra_names), "size": n, "grid": grid})
+
+    # Levels 151-300: 40 harder 8x8, 110 9x9.
+    rng3 = random.Random(args.seed + 2)
+    shuffled = list(EXTRA_NAMES3)
+    rng3.shuffle(shuffled)
+    extra_names = iter(shuffled[:149] + [FINAL_NAME3])
+    plan3 = [(8, 40, 22, 2), (9, 110, 8, 2)]   # size, count, min hard, pool factor
+    for n, k, min_hard, factor in plan3:
+        for hard, steps, grid in generate_repaired(n, k, rng3, seen, min_hard, factor, show=True):
             levels.append({"name": next(extra_names), "size": n, "grid": grid})
 
     with open(args.out, "w") as f:
