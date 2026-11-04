@@ -3,8 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SoDuckYou: a logic puzzle. Place one duck in every row, column, and patch, with no two ducks touching.">
 
-    <title>Sketch</title>
+    <title>SoDuckYou</title>
 
     <link rel="stylesheet" type="text/css" href="style.css">
 
@@ -13,6 +14,74 @@
   </head>
 
   <body>
+    <a class="skip-link" href="#board">Skip to puzzle board</a>
+
+    <header class="site-header">
+      <h1>So<span class="accent">Duck</span>You</h1>
+      <p class="tagline">One duck per row, column, and patch. No ducks touching.</p>
+    </header>
+
+    <main>
+      <nav class="level-bar" aria-label="Levels">
+        <button type="button" id="prev-btn" class="icon-btn" aria-label="Previous level">&#8592;</button>
+        <div class="level-picker">
+          <label for="level-select">Level</label>
+          <select id="level-select"></select>
+        </div>
+        <button type="button" id="next-btn" class="icon-btn" aria-label="Next level">&#8594;</button>
+      </nav>
+
+      <p id="level-info" class="level-info"></p>
+
+      <!-- p5.js puts the canvas in here -->
+      <div id="board" class="board-wrap"></div>
+
+      <div class="toolbar" role="toolbar" aria-label="Puzzle tools">
+        <button type="button" id="hint-btn">Hint</button>
+        <button type="button" id="undo-btn">Undo</button>
+        <button type="button" id="clear-btn">Start over</button>
+      </div>
+
+      <div class="options">
+        <label><input type="checkbox" id="auto-x" checked> Show squares ruled out by ducks</label>
+        <label><input type="checkbox" id="show-letters"> Show patch letters</label>
+      </div>
+
+      <!-- Spoken by screen readers when it changes -->
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <div id="win-panel" class="win-panel" hidden>
+        <p id="win-text" class="win-text" tabindex="-1"></p>
+        <button type="button" id="win-next-btn">Next level &#8594;</button>
+      </div>
+
+      <details class="help">
+        <summary>How to play</summary>
+        <h2>Rules</h2>
+        <ul>
+          <li>Every row gets exactly one duck.</li>
+          <li>Every column gets exactly one duck.</li>
+          <li>Every colored patch (outlined in thick lines) gets exactly one duck.</li>
+          <li>No two ducks touch, not even diagonally.</li>
+        </ul>
+        <h2>Mouse and touch</h2>
+        <ul>
+          <li>Tap a square once for an X (no duck here), twice for a duck, three times to clear it.</li>
+          <li>Drag from an empty square to mark several squares with X.</li>
+        </ul>
+        <h2 id="keys-heading">Keyboard</h2>
+        <ul id="keys-help">
+          <li>Tab to the board, then use the arrow keys to move.</li>
+          <li><kbd>Space</kbd> or <kbd>Enter</kbd>: cycle empty, X, duck.</li>
+          <li><kbd>D</kbd>: place or remove a duck. <kbd>X</kbd>: place or remove an X. <kbd>Delete</kbd>: clear.</li>
+          <li><kbd>H</kbd>: hint. <kbd>U</kbd> or <kbd>Ctrl</kbd>+<kbd>Z</kbd>: undo.</li>
+          <li><kbd>R</kbd>: read the whole board row by row.</li>
+        </ul>
+        <p>Levels load from <code>levels.json</code>, the same format as CS 149 PA4.</p>
+      </details>
+    </main>
+
+    <script src="puzzle.js"></script>
     <script src="sketch.js"></script>
   </body>
 </html>

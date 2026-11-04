@@ -1,8 +1,215 @@
+:root {
+  --bg: #f4f8f6;
+  --panel: #ffffff;
+  --ink: #1f2a2e;          /* 13.9:1 on --bg */
+  --muted: #4a5a60;        /* 6.7:1 on --bg */
+  --accent: #b35c00;       /* duck-bill orange, 4.6:1 on white */
+  --btn: #1f5f7a;          /* 7.0:1 with white text */
+  --btn-hover: #174a60;
+  --focus: #1f2a2e;
+  --win: #e8f5e4;
+  --win-border: #2e6b2a;
+}
+
+* { box-sizing: border-box; }
+
 html, body {
   margin: 0;
   padding: 0;
 }
 
-canvas {
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  background: var(--panel);
+  padding: .5rem 1rem;
+  z-index: 10;
+}
+
+.site-header {
+  text-align: center;
+  padding: 1.25rem 1rem .25rem;
+}
+.site-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  letter-spacing: -0.02em;
+}
+.accent { color: var(--accent); }
+.tagline {
+  margin: .25rem 0 0;
+  color: var(--muted);
+}
+
+main {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+}
+
+.level-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+.level-picker {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.level-picker label { font-weight: 600; }
+
+select, button {
+  font: inherit;
+  min-height: 44px;           /* WCAG 2.5.5 target size */
+}
+select {
+  padding: .25rem .5rem;
+  border: 2px solid var(--muted);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  min-width: 0;
+  max-width: 100%;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  background: var(--btn);
+  color: #fff;
+  padding: .5rem 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+button:hover { background: var(--btn-hover); }
+button:disabled {
+  background: #8a9599;        /* still 3:1 against page */
+  cursor: not-allowed;
+}
+.icon-btn {
+  min-width: 44px;
+  font-size: 1.25rem;
+  padding: .25rem .75rem;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.level-info {
+  text-align: center;
+  color: var(--muted);
+  margin: .5rem 0;
+  min-height: 1.5em;
+}
+
+.board-wrap {
+  display: flex;
+  justify-content: center;
+}
+.board-wrap canvas {
   display: block;
+  touch-action: none;         /* let drags mark X without scrolling the page */
+  border-radius: 12px;
+}
+.board-wrap canvas:focus-visible {
+  outline: none;              /* focus is drawn on the canvas itself */
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .25rem 1.25rem;
+  margin-top: .75rem;
+}
+.options label {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 44px;
+  cursor: pointer;
+}
+.options input {
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--btn);
+}
+
+.status {
+  text-align: center;
+  min-height: 3em;
+  margin: .75rem 0 0;
+}
+
+.win-panel {
+  margin-top: .5rem;
+  padding: 1rem;
+  text-align: center;
+  background: var(--win);
+  border: 2px solid var(--win-border);
+  border-radius: 12px;
+}
+.win-text {
+  margin: 0 0 .75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.help {
+  margin-top: 1.5rem;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: .75rem 1.25rem;
+  border: 1px solid #c9d4d0;
+}
+.help summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.help h2 {
+  font-size: 1.05rem;
+  margin: 1rem 0 .25rem;
+}
+.help ul { margin: 0; padding-left: 1.25rem; }
+kbd {
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+  padding: 0 .3rem;
+  font-family: inherit;
+  font-size: .9em;
+  background: var(--bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
 }
