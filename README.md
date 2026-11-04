@@ -1,4 +1,4 @@
-# SoDuckYou
+# SoDUCKu
 
 A p5.js logic puzzle in the spirit of [Meowdoku](https://meowdoku.app), with ducks,
 built on the level format from CS 149 PA4 (SoDuckYou).
@@ -26,7 +26,25 @@ built on the level format from CS 149 PA4 (SoDuckYou).
 
 Hints work like Meowdoku's: they point out mistakes first (ducks breaking a rule,
 ducks not in the solution, X marks covering a needed square), then the next logical
-move. Every level can be solved by following hints alone.
+move. Every level can be solved by following hints alone. The logical moves,
+in order:
+
+1. **Only one square left:** a row, column, or patch has one open square, so
+   the duck goes there.
+2. **Ruled out by a duck:** squares that share a row, column, or patch with a
+   duck, or touch one, get an X.
+3. **Would block a group:** a duck here would leave some row, column, or patch
+   with no room, so this square gets an X.
+4. **Confined groups:** if, say, patches H and I only have open squares in
+   rows 8 and 9, then rows 8 and 9's ducks must be in H and I, so every other
+   square in rows 8 and 9 gets an X. This works between any two kinds (rows,
+   columns, patches) and for groups of 1 to 5. The 10×10 levels need it.
+
+When a hint names a patch, the patch letters appear on the board until the
+next move.
+
+After you solve a level, the win panel can mark every earlier level as solved,
+which is handy if you skipped ahead.
 
 ## Accessibility
 
@@ -47,7 +65,7 @@ move. Every level can be solved by following hints alone.
 | `index.html` | Page layout, buttons, help text |
 | `sketch.js` | p5.js drawing and input |
 | `puzzle.js` | Rules, solver, and hint logic (no p5, testable with Node) |
-| `levels.json` | 300 playable levels in the PA4 format |
+| `levels.json` | 350 playable levels in the PA4 format |
 | `tools/generate_levels.py` | Makes new levels |
 | `style.css` | Page styles |
 
@@ -61,7 +79,7 @@ that the game skips.
 {"name": "Puddle", "size": 4, "grid": ["ABBC", "ABBC", "ABBD", "ADDD"]}
 ```
 
-The file has 300 playable levels, each with exactly one solution, and every
+The file has 350 playable levels, each with exactly one solution, and every
 one can be solved by following hints alone:
 
 | Levels | Size |
@@ -71,16 +89,17 @@ one can be solved by following hints alone:
 | 30–65 | 6×6 |
 | 66–105 | 7×7 |
 | 106–190 | 8×8 |
-| 191–300 | 9×9 (ends with Open Ocean) |
+| 191–300 | 9×9 |
+| 301–350 | 10×10, each needs the "confined groups" hint (ends with The Big Pond) |
 
 Difficulty climbs within each size. PA4's Mud Hole draft is also in the file,
 and the game skips it. PA4's `play_soduckyou.py` asks for sizes 4–6, so the
-7×7, 8×8, and 9×9 levels only appear in the web game.
+7×7 through 10×10 levels only appear in the web game.
 
 To make a new set:
 
 ```bash
-python3 tools/generate_levels.py --seed 42   # takes a few minutes
+python3 tools/generate_levels.py --seed 42   # takes about 15 minutes
 ```
 
 ## Running locally

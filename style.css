@@ -182,6 +182,22 @@ button:disabled {
   font-weight: 700;
 }
 
+.win-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .5rem;
+}
+.secondary-btn {
+  background: var(--panel);
+  color: var(--btn);
+  border: 2px solid var(--btn);
+}
+.secondary-btn:hover {
+  background: #e3eef3;
+  color: var(--btn-hover);
+}
+
 .help {
   margin-top: 1.5rem;
   background: var(--panel);

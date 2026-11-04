@@ -1,4 +1,4 @@
-"""Generate SoDuckYou levels in the PA4 levels.json format.
+"""Generate SoDUCKu levels in the PA4 levels.json format.
 
 Each level is a dict with "name", "size", and "grid" (a list of strings,
 one letter per square; squares with the same letter form one patch).
@@ -8,6 +8,7 @@ Every generated level is checked to have exactly one solution and to be
 solvable by the same step-by-step logic the in-game hint button uses.
 
 Levels 151-300 (harder 8x8, then 9x9) use the same repair method.
+Levels 301-350 (10x10) also need the "confined groups" hint at least once.
 
 Levels 1-50 (4x4 to 6x6) grow random patches and keep the boards that happen
 to have one solution. Levels 51-150 (harder 6x6, then 7x7 and 8x8) use
@@ -15,13 +16,14 @@ to have one solution. Levels 51-150 (harder 6x6, then 7x7 and 8x8) use
 moved into a neighboring patch until only the intended solution is left.
 
 Usage:
-    python3 tools/generate_levels.py            # writes levels.json (300 levels, a few minutes)
+    python3 tools/generate_levels.py            # writes levels.json (350 levels, about 15 minutes)
     python3 tools/generate_levels.py --seed 7   # different puzzles
 """
 
 import argparse
 import json
 import random
+from itertools import combinations
 
 LETTERS = "ABCDEFGHIJ"
 
@@ -61,6 +63,13 @@ _WATER3 = ["Pond", "Lake", "Harbor", "Wetland", "Bog", "Mere", "Tarn", "Loch",
            "Basin", "River", "Falls", "Channel", "Pool", "Moor", "Sound"]
 EXTRA_NAMES3 = [f"{a} {w}" for a in _ADJ3 for w in _WATER3]
 FINAL_NAME3 = "Open Ocean"
+
+# Names for levels 301-350.
+_ADJ4 = ["Northern", "Southern", "Eastern", "Western", "Ancient", "Endless",
+         "Mighty"]
+_WATER4 = ["Waters", "Tides", "Current", "Depths", "Gulf", "Strait", "Reach"]
+EXTRA_NAMES4 = [f"{a} {w}" for a in _ADJ4 for w in _WATER4]
+FINAL_NAME4 = "The Big Pond"
 
 
 def neighbors8(r, c, n):
@@ -102,12 +111,61 @@ def count_solutions(grid, limit=2):
     return count
 
 
-def logic_solve(grid):
+def confined_groups(grid, open_, max_k=5):
+    """Rule 3 (confined groups), the same trick as the in-game hint.
+
+    If k rows, columns, or patches have all their open squares inside k groups
+    of another kind (for example, 2 patches whose open squares all sit in
+    rows 3 and 4), those k groups' ducks must be those groups' ducks, so every
+    other open square in them can be ruled out.
+
+    Returns (k, squares_to_rule_out) for the smallest k that rules out
+    something, or None.
+    """
+    n = len(grid)
+    letters = sorted({ch for row in grid for ch in row})
+
+    def key(kind, cell):
+        r, c = cell
+        if kind == 0:
+            return r
+        if kind == 1:
+            return c
+        return letters.index(grid[r][c])
+
+    best = None
+    for a in range(3):
+        groups = {}
+        for cell in open_:
+            groups.setdefault(key(a, cell), set()).add(cell)
+        ids = sorted(groups)
+        for b in range(3):
+            if a == b:
+                continue
+            reach = {g: frozenset(key(b, x) for x in groups[g]) for g in ids}
+            for k in range(1, min(max_k, len(ids) - 1) + 1):
+                if best and best[0] <= k:
+                    break
+                for combo in combinations(ids, k):
+                    used = frozenset().union(*(reach[g] for g in combo))
+                    if len(used) != k:
+                        continue
+                    inside = set().union(*(groups[g] for g in combo))
+                    out = {x for x in open_ if key(b, x) in used and x not in inside}
+                    if out:
+                        best = (k, out)
+                        break
+    return best
+
+
+def logic_solve(grid, confined=False, stats=None):
     """Solve with the hint logic. Returns (solved, steps, hard_steps).
 
     Rule 1 (single): a row, column, or patch with one open square gets a duck.
     Rule 2 (block): a square whose duck would leave some row, column, or
     patch with no open squares gets an X. Rule 2 counts as a "hard" step.
+    Rule 3 (confined groups, only when confined=True): see confined_groups().
+    It counts as a hard step, and stats["confined"] counts how often it ran.
     """
     n = len(grid)
     open_ = {(r, c) for r in range(n) for c in range(n)}
@@ -168,6 +226,15 @@ def logic_solve(grid):
                     break
             if progress:
                 break
+        if not progress and confined:
+            found = confined_groups(grid, open_)
+            if found:
+                open_.difference_update(found[1])
+                steps += 1
+                hard += 2
+                if stats is not None:
+                    stats["confined"] = stats.get("confined", 0) + 1
+                progress = True
         if not progress:
             return False, steps, hard
     return True, steps, hard
@@ -336,7 +403,8 @@ def repaired_regions(n, rng, max_repairs=300):
     return rows
 
 
-def generate_repaired(n, how_many, rng, seen, min_hard=0, pool_factor=3, show=False):
+def generate_repaired(n, how_many, rng, seen, min_hard=0, pool_factor=3, show=False,
+                      confined=False, min_confined=0):
     """Make a pool of repaired boards and keep an even spread, easier first."""
     pool = []
     while len(pool) < how_many * pool_factor:
@@ -345,8 +413,9 @@ def generate_repaired(n, how_many, rng, seen, min_hard=0, pool_factor=3, show=Fa
             continue
         if count_solutions(grid) != 1:
             continue
-        ok, steps, hard = logic_solve(grid)
-        if not ok or hard < min_hard:
+        stats = {}
+        ok, steps, hard = logic_solve(grid, confined, stats)
+        if not ok or hard < min_hard or stats.get("confined", 0) < min_confined:
             continue
         seen.add("".join(grid))
         pool.append((hard, steps, grid))
@@ -404,6 +473,15 @@ def main():
     for n, k, min_hard, factor in plan3:
         for hard, steps, grid in generate_repaired(n, k, rng3, seen, min_hard, factor, show=True):
             levels.append({"name": next(extra_names), "size": n, "grid": grid})
+
+    # Levels 301-350: 50 10x10 that need the "confined groups" hint at least once.
+    rng4 = random.Random(args.seed + 3)
+    shuffled = list(EXTRA_NAMES4)
+    rng4.shuffle(shuffled)
+    extra_names = iter(shuffled[:49] + [FINAL_NAME4])
+    for hard, steps, grid in generate_repaired(10, 50, rng4, seen, 0, 1.6, show=True,
+                                               confined=True, min_confined=1):
+        levels.append({"name": next(extra_names), "size": 10, "grid": grid})
 
     with open(args.out, "w") as f:
         f.write("[\n")

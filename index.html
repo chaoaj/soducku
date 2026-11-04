@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="SoDuckYou: a logic puzzle. Place one duck in every row, column, and patch, with no two ducks touching.">
+    <meta name="description" content="SoDUCKu: a logic puzzle. Place one duck in every row, column, and patch, with no two ducks touching.">
 
-    <title>SoDuckYou</title>
+    <title>SoDUCKu</title>
 
     <link rel="stylesheet" type="text/css" href="style.css">
 
@@ -17,7 +17,7 @@
     <a class="skip-link" href="#board">Skip to puzzle board</a>
 
     <header class="site-header">
-      <h1>So<span class="accent">Duck</span>You</h1>
+      <h1>So<span class="accent">DUCK</span>u</h1>
       <p class="tagline">One duck per row, column, and patch. No ducks touching.</p>
     </header>
 
@@ -52,7 +52,10 @@
 
       <div id="win-panel" class="win-panel" hidden>
         <p id="win-text" class="win-text" tabindex="-1"></p>
-        <button type="button" id="win-next-btn">Next level &#8594;</button>
+        <div class="win-actions">
+          <button type="button" id="win-next-btn">Next level &#8594;</button>
+          <button type="button" id="mark-prev-btn" class="secondary-btn"></button>
+        </div>
       </div>
 
       <details class="help">

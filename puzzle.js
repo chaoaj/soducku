@@ -1,4 +1,4 @@
-// puzzle.js — game rules, solver, and hint logic for SoDuckYou.
+// puzzle.js — game rules, solver, and hint logic for SoDUCKu.
 // No p5.js here, so this file can also be tested with Node:
 //   node -e "const P=require('./puzzle.js'); ..."
 
@@ -172,7 +172,11 @@ class Puzzle {
         }
       }
     }
-    // 7. Fallback: show a square from the solution.
+    // 7. Confined groups: k rows/columns/patches that fit inside k of another kind.
+    const conf = this.confinedGroups(isOpen);
+    if (conf) return conf;
+
+    // 8. Fallback: show a square from the solution.
     if (sol) for (let r = 0; r < n; r++) {
       if (board[r][sol[r]] !== DUCK) {
         return { cells: [[r, sol[r]]], message: `Try a duck at ${where(r, sol[r])}.` };
@@ -180,6 +184,98 @@ class Puzzle {
     }
     return { cells: [], message: "Every duck is in place!" };
   }
+
+  /**
+   * "Confined groups" hint (the same rule as tools/generate_levels.py).
+   * If k groups of one kind (rows, columns, or patches) have all their open
+   * squares inside k groups of another kind, those k groups must supply the
+   * other groups' ducks, so every other open square in them is ruled out.
+   * Example: patches C and F only have room in rows 3 and 4, so the ducks of
+   * rows 3 and 4 are C's and F's; nothing else in rows 3 and 4 can be a duck.
+   * Returns a hint for the smallest k that rules something out, or null.
+   */
+  confinedGroups(isOpen, maxK = 5) {
+    const n = this.size;
+    const open = [];
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (isOpen(r, c)) open.push([r, c]);
+    const keyOf = (kind, [r, c]) => kind === 0 ? r : kind === 1 ? c : this.letters.indexOf(this.grid[r][c]);
+
+    let best = null;
+    for (let a = 0; a < 3; a++) {
+      const groups = new Map();
+      for (const cell of open) {
+        const id = keyOf(a, cell);
+        if (!groups.has(id)) groups.set(id, []);
+        groups.get(id).push(cell);
+      }
+      const ids = [...groups.keys()].sort((x, y) => x - y);
+      for (let b = 0; b < 3; b++) {
+        if (a === b) continue;
+        const reach = new Map(ids.map(id => [id, new Set(groups.get(id).map(cell => keyOf(b, cell)))]));
+        for (let k = 1; k <= Math.min(maxK, ids.length - 1); k++) {
+          if (best && best.k <= k) break;
+          for (const combo of choose(ids, k)) {
+            const used = new Set();
+            for (const id of combo) for (const x of reach.get(id)) used.add(x);
+            if (used.size !== k) continue;
+            const inCombo = new Set(combo);
+            const out = open.filter(cell => used.has(keyOf(b, cell)) && !inCombo.has(keyOf(a, cell)));
+            if (out.length) {
+              best = { k, a, b, combo, used: [...used].sort((x, y) => x - y), out };
+              break;
+            }
+          }
+        }
+      }
+    }
+    if (!best) return null;
+
+    const A = this.groupNames(best.a, best.combo);
+    const B = this.groupNames(best.b, best.used);
+    const cap = s => s[0].toUpperCase() + s.slice(1);
+    const m = best.out.length;
+    const squares = m === 1 ? "The highlighted square" : `The ${m} highlighted squares`;
+    const mark = m === 1 ? "Mark it with X." : "Mark them with X.";
+    let message;
+    if (best.k === 1) {
+      message = `${cap(A)} only has open squares in ${B}, so ${B}'s duck must be in ${A}. ` +
+        `${squares} in ${B} outside ${A} can't hold a duck. ${mark}`;
+    } else {
+      const kw = numberWord(best.k);
+      const aPlural = ["rows", "columns", "patches"][best.a];
+      const bPlural = ["rows", "columns", "patches"][best.b];
+      message = `${cap(A)} only have open squares in ${B}. ${cap(kw)} ${aPlural} need ${kw} ducks ` +
+        `from just ${kw} ${bPlural}, so all the ducks of ${B} must be in ${A}. ` +
+        `${squares} can't hold a duck. ${mark}`;
+    }
+    return { cells: best.out, message };
+  }
+
+  // "row 3", "rows 3 and 4", "patches B, C, and F"
+  groupNames(kind, ids) {
+    const word = ["row", "column", "patch"][kind];
+    const plural = ["rows", "columns", "patches"][kind];
+    const names = ids.map(id => kind === 2 ? this.letters[id] : String(id + 1));
+    if (names.length === 1) return `${word} ${names[0]}`;
+    const list = names.length === 2
+      ? `${names[0]} and ${names[1]}`
+      : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+    return `${plural} ${list}`;
+  }
+}
+
+// All k-element subsets of arr, in order.
+function* choose(arr, k, start = 0, picked = []) {
+  if (picked.length === k) { yield [...picked]; return; }
+  for (let i = start; i <= arr.length - (k - picked.length); i++) {
+    picked.push(arr[i]);
+    yield* choose(arr, k, i + 1, picked);
+    picked.pop();
+  }
+}
+
+function numberWord(k) {
+  return ["zero", "one", "two", "three", "four", "five"][k] || String(k);
 }
 
 if (typeof module !== "undefined") module.exports = { Puzzle, EMPTY, XMARK, DUCK };

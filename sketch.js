@@ -1,4 +1,4 @@
-// sketch.js — p5.js drawing and input for SoDuckYou.
+// sketch.js — p5.js drawing and input for SoDUCKu.
 // Game rules, solving, and hints live in puzzle.js.
 
 // Soft patch colors (one per patch letter, A, B, C, ...).
@@ -30,6 +30,7 @@ let board;              // board[r][c] is EMPTY, XMARK, or DUCK
 let undoStack = [];
 let cursor = { r: 0, c: 0 };
 let hintCells = [];
+let hintNamesPatch = false;  // show patch letters while a hint mentions a patch
 let solved = false;
 let solvedAt = 0;
 let completed = new Set();
@@ -162,7 +163,7 @@ function draw() {
     const [x, y] = cellXY(r, c);
     const cx = x + cellPx / 2, cy = y + cellPx / 2;
 
-    if (select("#show-letters").elt.checked) {
+    if (select("#show-letters").elt.checked || (hintCells.length && hintNamesPatch)) {
       noStroke();
       fill(INK);
       textSize(Math.max(12, cellPx * 0.2));
@@ -414,6 +415,7 @@ function showHint() {
   if (solved) return;
   const h = puzzle.hint(board);
   hintCells = h.cells;
+  hintNamesPatch = /\bpatch(es)?\b/i.test(h.message);
   if (h.cells.length) cursor = { r: h.cells[0][0], c: h.cells[0][1] };
   setStatus("Hint: " + h.message);
 }
@@ -425,12 +427,45 @@ function showWin(fresh) {
     : `You solved level ${levelIndex + 1}, ${puzzle.name}!`;
   select("#win-text").html(msg);
   select("#win-next-btn").elt.hidden = last;
+  updateMarkPrevButton();
   select("#win-panel").elt.hidden = false;
   updateUndoButton();
   if (fresh) {
     setStatus(msg);
     (last ? select("#win-text").elt : select("#win-next-btn").elt).focus();
   }
+}
+
+// "Mark levels 1-N as solved": shown on a solved level when earlier levels
+// aren't all marked yet (handy for players who skip ahead).
+function unsolvedBefore() {
+  return levels.slice(0, levelIndex).filter(lv => !completed.has(lv.name));
+}
+
+function updateMarkPrevButton() {
+  const btn = select("#mark-prev-btn").elt;
+  const count = unsolvedBefore().length;
+  btn.hidden = !solved || count === 0;
+  btn.textContent = levelIndex === 1
+    ? "Mark level 1 as solved"
+    : `Mark levels 1–${levelIndex} as solved`;
+  btn.setAttribute("aria-label", levelIndex === 1
+    ? "Mark level 1 as solved"
+    : `Mark levels 1 to ${levelIndex} as solved (${count} not solved yet)`);
+}
+
+function markPreviousSolved() {
+  if (!solved) return;
+  const todo = unsolvedBefore();
+  if (!todo.length) return;
+  for (const lv of todo) completed.add(lv.name);
+  saveStore("completed", [...completed]);
+  buildLevelSelect();
+  updateMarkPrevButton();
+  setStatus(`Marked ${todo.length} earlier level${todo.length > 1 ? "s" : ""} as solved.`);
+  // The button just hid itself, so keep keyboard focus somewhere sensible.
+  const next = select("#win-next-btn").elt;
+  (next.hidden ? select("#win-text").elt : next).focus();
 }
 
 // ---------- screen reader text ----------
@@ -470,13 +505,14 @@ function setStatus(text) {
 // ---------- page controls ----------
 
 function hookUpControls() {
-  select("#prev-btn").mousePressed(() => goTo(levelIndex - 1));
-  select("#next-btn").mousePressed(() => goTo(levelIndex + 1));
-  select("#win-next-btn").mousePressed(() => goTo(levelIndex + 1, true));
+  onClick("#prev-btn", () => goTo(levelIndex - 1));
+  onClick("#next-btn", () => goTo(levelIndex + 1));
+  onClick("#win-next-btn", () => goTo(levelIndex + 1, true));
   select("#level-select").changed(() => goTo(int(select("#level-select").value())));
-  select("#hint-btn").mousePressed(showHint);
-  select("#undo-btn").mousePressed(undo);
-  select("#clear-btn").mousePressed(() => {
+  onClick("#mark-prev-btn", markPreviousSolved);
+  onClick("#hint-btn", showHint);
+  onClick("#undo-btn", undo);
+  onClick("#clear-btn", () => {
     if (board.every(row => row.every(v => v === EMPTY))) return;
     pushUndo();
     board = puzzle.newBoard();
@@ -488,6 +524,12 @@ function hookUpControls() {
     const i = parseInt(location.hash.replace("#", ""), 10) - 1;
     if (Number.isInteger(i) && i !== levelIndex && i >= 0 && i < levels.length) loadLevel(i);
   });
+}
+
+// Native "click" fires for mouse, touch, AND keyboard (Enter/Space).
+// p5's mousePressed() only fires for pointer presses, so buttons use this.
+function onClick(id, handler) {
+  select(id).elt.addEventListener("click", handler);
 }
 
 function goTo(i, focusBoard = false) {
