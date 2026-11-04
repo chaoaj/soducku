@@ -47,7 +47,7 @@ move. Every level can be solved by following hints alone.
 | `index.html` | Page layout, buttons, help text |
 | `sketch.js` | p5.js drawing and input |
 | `puzzle.js` | Rules, solver, and hint logic (no p5, testable with Node) |
-| `levels.json` | 50 playable levels in the PA4 format |
+| `levels.json` | 150 playable levels in the PA4 format |
 | `tools/generate_levels.py` | Makes new levels |
 | `style.css` | Page styles |
 
@@ -61,9 +61,22 @@ that the game skips.
 {"name": "Puddle", "size": 4, "grid": ["ABBC", "ABBC", "ABBD", "ADDD"]}
 ```
 
-The file has the PA4 samples (Puddle, the Mud Hole draft, Pond) plus 48
-generated levels: ten 4×4, nineteen 5×5, and twenty-one 6×6, easier first
-within each size. Each one has exactly one solution. To make a new set:
+The file has 150 playable levels, each with exactly one solution, and every
+one can be solved by following hints alone:
+
+| Levels | Size |
+| --- | --- |
+| 1–10 | 4×4 (starts with PA4's Puddle) |
+| 11–29 | 5×5 (starts with PA4's Pond) |
+| 30–65 | 6×6 |
+| 66–105 | 7×7 |
+| 106–150 | 8×8 (ends with Great Lake) |
+
+Difficulty climbs within each size. PA4's Mud Hole draft is also in the file,
+and the game skips it. PA4's `play_soduckyou.py` asks for sizes 4–6, so the
+7×7 and 8×8 levels only appear in the web game.
+
+To make a new set:
 
 ```bash
 python3 tools/generate_levels.py --seed 42

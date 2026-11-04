@@ -7,8 +7,13 @@ Optional "draft": true marks a level the game should skip.
 Every generated level is checked to have exactly one solution and to be
 solvable by the same step-by-step logic the in-game hint button uses.
 
+Levels 1-50 (4x4 to 6x6) grow random patches and keep the boards that happen
+to have one solution. Levels 51-150 (harder 6x6, then 7x7 and 8x8) use
+"repair": when a board has a second solution, a square of that solution is
+moved into a neighboring patch until only the intended solution is left.
+
 Usage:
-    python3 tools/generate_levels.py            # writes levels.json
+    python3 tools/generate_levels.py            # writes levels.json (150 levels)
     python3 tools/generate_levels.py --seed 7   # different puzzles
 """
 
@@ -37,6 +42,15 @@ NAMES = [
     "Mill Pond", "Marsh", "Bayou", "Oxbow", "Estuary", "Lagoon", "Delta",
     "Backwater", "Fen", "Great Lake",
 ]
+
+
+# Names for levels 51-150: 99 adjective + water pairs, then a finale.
+_ADJ = ["Misty", "Sunny", "Quiet", "Mossy", "Breezy", "Hidden", "Golden",
+        "Silver", "Frosty", "Muddy"]
+_WATER = ["Cove", "Creek", "Inlet", "Brook", "Slough", "Shallows", "Rapids",
+          "Reeds", "Spring", "Bay"]
+EXTRA_NAMES = [f"{a} {w}" for a in _ADJ for w in _WATER]
+FINAL_NAME = "Great Lake"
 
 
 def neighbors8(r, c, n):
@@ -207,6 +221,134 @@ def generate(n, how_many, rng, seen):
     return found
 
 
+def _connected_without(owner, n, reg, skip):
+    """True if patch `reg` stays connected (and non-empty) without `skip`."""
+    cells = [(r, c) for r in range(n) for c in range(n)
+             if owner[r][c] == reg and (r, c) != skip]
+    if not cells:
+        return False
+    keep = set(cells)
+    seen = {cells[0]}
+    stack = [cells[0]]
+    while stack:
+        r, c = stack.pop()
+        for q in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):
+            if q in keep and q not in seen:
+                seen.add(q)
+                stack.append(q)
+    return len(seen) == len(cells)
+
+
+def _solutions(owner, n, limit=2):
+    grid = ["".join(LETTERS[o] for o in row) for row in owner]
+    out = []
+    cols, regs, placed = set(), set(), []
+
+    def go(r):
+        if len(out) >= limit:
+            return
+        if r == n:
+            out.append(list(placed))
+            return
+        for c in range(n):
+            g = grid[r][c]
+            if c in cols or g in regs or (placed and abs(placed[-1] - c) <= 1):
+                continue
+            cols.add(c)
+            regs.add(g)
+            placed.append(c)
+            go(r + 1)
+            placed.pop()
+            cols.discard(c)
+            regs.discard(g)
+
+    go(0)
+    return out
+
+
+def repaired_regions(n, rng, max_repairs=300):
+    """Grow random patches, then repair until exactly one solution remains."""
+    perm = random_solution(n, rng)
+    owner = [[-1] * n for _ in range(n)]
+    for r, c in enumerate(perm):
+        owner[r][c] = r
+    left = n * n - n
+    while left:
+        reg = rng.randrange(n)
+        frontier = [
+            (rr, cc)
+            for r in range(n) for c in range(n) if owner[r][c] == reg
+            for rr, cc in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1))
+            if 0 <= rr < n and 0 <= cc < n and owner[rr][cc] == -1
+        ]
+        if frontier:
+            rr, cc = rng.choice(frontier)
+            owner[rr][cc] = reg
+            left -= 1
+
+    target = set(enumerate(perm))
+    for _ in range(max_repairs):
+        sols = _solutions(owner, n)
+        if len(sols) == 1:
+            break
+        alt = [s for s in sols if s != perm][0]
+        alt_regs = {owner[r][c] for r, c in enumerate(alt)}
+        moves = []
+        for r, c in enumerate(alt):
+            if (r, c) in target:
+                continue
+            for q in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):
+                if 0 <= q[0] < n and 0 <= q[1] < n and owner[q[0]][q[1]] != owner[r][c]:
+                    new = owner[q[0]][q[1]]
+                    # Best moves put two of the other solution's ducks in one patch.
+                    moves.append((new not in alt_regs, (r, c), new))
+        rng.shuffle(moves)
+        moves.sort(key=lambda m: m[0])
+        for _, (r, c), new in moves:
+            if _connected_without(owner, n, owner[r][c], (r, c)):
+                owner[r][c] = new
+                break
+        else:
+            return None
+    else:
+        return None
+
+    mapping = {}
+    rows = []
+    for r in range(n):
+        row = ""
+        for c in range(n):
+            o = owner[r][c]
+            if o not in mapping:
+                mapping[o] = LETTERS[len(mapping)]
+            row += mapping[o]
+        rows.append(row)
+    return rows
+
+
+def generate_repaired(n, how_many, rng, seen, min_hard=0, pool_factor=3):
+    """Make a pool of repaired boards and keep an even spread, easier first."""
+    pool = []
+    while len(pool) < how_many * pool_factor:
+        grid = repaired_regions(n, rng)
+        if grid is None or "".join(grid) in seen:
+            continue
+        if count_solutions(grid) != 1:
+            continue
+        ok, steps, hard = logic_solve(grid)
+        if not ok or hard < min_hard:
+            continue
+        seen.add("".join(grid))
+        pool.append((hard, steps, grid))
+    pool.sort(key=lambda t: (t[0], t[1]))
+    # Take evenly spaced picks so difficulty climbs steadily.
+    picks = [pool[round(i * (len(pool) - 1) / (how_many - 1))] for i in range(how_many)]
+    for t in pool:
+        if t not in picks:
+            seen.discard("".join(t[2]))
+    return picks
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=149)
@@ -230,6 +372,16 @@ def main():
         batch.sort(key=lambda t: (t[0], t[1]))  # easier first
         for hard, steps, grid in batch:
             levels.append({"name": next(names), "size": n, "grid": grid})
+
+    # Levels 51-150: 15 harder 6x6, 40 7x7, 45 8x8.
+    rng2 = random.Random(args.seed + 1)
+    shuffled = list(EXTRA_NAMES)
+    rng2.shuffle(shuffled)
+    extra_names = iter(shuffled[:99] + [FINAL_NAME])
+    plan2 = [(6, 15, 16), (7, 40, 6), (8, 45, 12)]   # size, count, min hard steps
+    for n, k, min_hard in plan2:
+        for hard, steps, grid in generate_repaired(n, k, rng2, seen, min_hard):
+            levels.append({"name": next(extra_names), "size": n, "grid": grid})
 
     with open(args.out, "w") as f:
         f.write("[\n")
